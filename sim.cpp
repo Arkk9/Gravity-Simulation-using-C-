@@ -2,8 +2,7 @@
 // 2D approximation of the OpenGL simulation, using graphics.h (WinBGI).
 // Left click: spawn an object (hold to "grow" mass with right button).
 // Right click while initializing: increase mass.
-// WASD / arrow keys: pan camera. +/- to zoom. K to toggle pause. Q to quit.
-#include <graphics.h>
+// WASD / arrow keys: pan camera. +/- to zoom. K to toggle pause. Q to quit.#include <graphics.h>
 #include <conio.h>
 #include <windows.h>
 #include <vector>
@@ -12,32 +11,31 @@
 
 using namespace std;
 
-const double G = 0.1; // Gravitational constant for simulation
+const double G = 0.1; // gravitational constant
 bool paused = false;
 
-// Camera control
+// Camera controls
 double camX = 0, camY = 0;
 double zoom = 1.0;
 
-// Object structure
+// Body structure
 struct Body {
-    double x, y; // Position
-    double vx, vy; // Velocity
+    double x, y;
+    double vx, vy;
     double mass;
-    int radius; // For drawing
+    int radius;
 };
 
-// Global list of bodies
 vector<Body> bodies;
 
-// Function to draw a body
+// Draw a body
 void drawBody(const Body &b) {
     int screenX = (int)((b.x - camX) * zoom + getmaxx() / 2);
     int screenY = (int)((b.y - camY) * zoom + getmaxy() / 2);
     circle(screenX, screenY, max(1, (int)(b.radius * zoom)));
 }
 
-// Function to update physics
+// Update physics safely
 void updatePhysics(double dt) {
     int n = bodies.size();
     for (int i = 0; i < n; i++) {
@@ -46,15 +44,21 @@ void updatePhysics(double dt) {
             if (i == j) continue;
             double dx = bodies[j].x - bodies[i].x;
             double dy = bodies[j].y - bodies[i].y;
-            double dist2 = dx * dx + dy * dy;
+            double dist2 = dx*dx + dy*dy;
             double dist = sqrt(dist2);
-            if (dist < 1) dist = 1; // Avoid extreme forces
-            double f = G * bodies[i].mass * bodies[j].mass / (dist2);
+            if (dist < 5) dist = 5; // prevent extreme forces
+
+            double f = G * bodies[i].mass * bodies[j].mass / dist2;
             fx += f * dx / dist;
             fy += f * dy / dist;
         }
+
+        // Cap velocity for stability
+        double vmax = 20;
         bodies[i].vx += fx / bodies[i].mass * dt;
         bodies[i].vy += fy / bodies[i].mass * dt;
+        bodies[i].vx = max(min(bodies[i].vx, vmax), -vmax);
+        bodies[i].vy = max(min(bodies[i].vy, vmax), -vmax);
     }
 
     for (auto &b : bodies) {
@@ -63,8 +67,9 @@ void updatePhysics(double dt) {
     }
 }
 
-// Function to handle user input
+// Handle keyboard & mouse input
 void handleInput() {
+    // Keyboard
     if (kbhit()) {
         char c = getch();
         switch (c) {
@@ -79,29 +84,29 @@ void handleInput() {
         }
     }
 
-    // Mouse: add body or scale mass
+    // Mouse: left-click = add body
     if (ismouseclick(WM_LBUTTONDOWN)) {
         int mx, my;
         getmouseclick(WM_LBUTTONDOWN, mx, my);
         Body b;
-        b.x = (mx - getmaxx() / 2) / zoom + camX;
-        b.y = (my - getmaxy() / 2) / zoom + camY;
-        b.vx = 0;
-        b.vy = 0;
-        b.mass = 50; // default mass
+        b.x = (mx - getmaxx()/2)/zoom + camX;
+        b.y = (my - getmaxy()/2)/zoom + camY;
+        b.vx = 0; b.vy = 0;
+        b.mass = 50;
         b.radius = 5;
         bodies.push_back(b);
     }
 
+    // Mouse: right-click = increase mass
     if (ismouseclick(WM_RBUTTONDOWN)) {
         int mx, my;
         getmouseclick(WM_RBUTTONDOWN, mx, my);
         for (auto &b : bodies) {
-            int screenX = (int)((b.x - camX) * zoom + getmaxx() / 2);
-            int screenY = (int)((b.y - camY) * zoom + getmaxy() / 2);
+            int screenX = (int)((b.x - camX)*zoom + getmaxx()/2);
+            int screenY = (int)((b.y - camY)*zoom + getmaxy()/2);
             if (abs(screenX - mx) < 10 && abs(screenY - my) < 10) {
-                b.mass *= 1.5; // increase mass
-                b.radius = (int)sqrt(b.mass); // visual scale
+                b.mass *= 1.5;
+                b.radius = (int)sqrt(b.mass);
                 break;
             }
         }
@@ -109,30 +114,20 @@ void handleInput() {
 }
 
 int main() {
-   
-    int gd = DETECT, gm;
-    initgraph(&gd, &gm, NULL); // Initialize graphics window
-
-
-
+    // Initialize graphics window
+    initwindow(800, 600, "2D Gravity Simulation");
 
     while (true) {
         handleInput();
 
-        if (!paused) {
-            updatePhysics(0.1);
-        }
+        if (!paused) updatePhysics(0.05);
 
         cleardevice();
-        for (auto &b : bodies) {
-            drawBody(b);
-        }
+        for (auto &b : bodies) drawBody(b);
 
-      
         delay(20);
     }
 
     closegraph();
     return 0;
 }
-
